@@ -1,4 +1,4 @@
-title: Texture Theme
+title: 金融街IT
 author: frederick623
 email: frederick623@gmail.com
 description: > # this means to ignore newlines until "show_exerpts:"
@@ -16,7 +16,7 @@ texture:
   title: 金融街IT
   tagline: Front Office IT的日與夜
   date_format: "%Y-%m-%d"
-  style: black
+  style: background
   showNav: false
   showPicker: false
 
@@ -24,8 +24,8 @@ texture:
   social_links:
     #twitter: thelehhman
     github:  frederick623
+    email:  finance-street-it@gmail.com
     facebook:  financestreetit
-    linkedIn: in/thelehhman
     #rss: rss
  
 
@@ -39,4 +39,5 @@ texture:
 
 plugins:
   - jekyll-seo-tag
+  - webrick
 #  - jekyll-feed

@@ -52,6 +52,14 @@
 }
 {%- endif -%}
 // Textures
+.texture-background {
+    background-image: url('{{ site.baseurl }}/assets/textures/background.png');
+
+    h2 {
+        color: #999;
+    }
+}
+
 .texture-black {
     background-image: url('{{ site.baseurl }}/assets/textures/black.jpg');
 
