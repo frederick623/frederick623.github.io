@@ -38,9 +38,8 @@ def main():
 「咁第間啦，Italian Tomato揀隻cheesecake啦。」
 
 {% highlight python %}
-class Cake
-{
-}
+class Cake:
+    ...
 
 class Cova(Cake):
 	class Flavor:
