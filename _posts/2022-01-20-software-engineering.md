@@ -19,7 +19,8 @@ class Cova:
         Strawberry = "strawberry"
         Mango = "mango"
 
-	Cova(flavor)
+	def __init__(self, flavor):
+        ...
 
 def purchase_present(cova):
     ...
@@ -39,7 +40,10 @@ def main():
 
 {% highlight python %}
 class Cake:
-    ...
+    class flavor
+
+    def __init__(self):
+        ...
 
 class Cova(Cake):
 	class Flavor:
