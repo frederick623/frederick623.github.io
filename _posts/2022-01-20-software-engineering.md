@@ -12,7 +12,7 @@ categories: [programming]
 
 「不如買去Cova買個Tiramisu？」
 
-{% highlight python}
+{% highlight python %}
 class Cova:
 	class Flavor:
         Tiramisu = "tiramisu"
@@ -37,7 +37,7 @@ def main():
 
 「咁第間啦，Italian Tomato揀隻cheesecake啦。」
 
-{% highlight python}
+{% highlight python %}
 class Cake
 {
 }
@@ -64,7 +64,7 @@ def main():
 
 到某日，原來食蛋糕都會有食到厭既一日，又變成⋯⋯
 
-{% highlight python}
+{% highlight python %}
 class Gift:
     ...
 
