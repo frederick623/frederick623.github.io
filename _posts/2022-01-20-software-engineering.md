@@ -37,6 +37,7 @@ def main():
 
 「咁第間啦，Italian Tomato揀隻cheesecake啦。」
 
+{% highlight python}
 class Cake
 {
 }
@@ -59,9 +60,11 @@ def purchase_present(cake):
 def main():
 	my_cake = ItalianTomato(ItalianTomato.Flavor.Chestnut)
 	purchase_present(my_cake)
+{% endhighlight %}
 
 到某日，原來食蛋糕都會有食到厭既一日，又變成⋯⋯
 
+{% highlight python}
 class Gift:
     ...
 
@@ -72,6 +75,7 @@ class Toy(Gift):
     ...
 
 ...
+{% endhighlight %}
 
 由以上例子可以見到，基本上定下框架（framework）時，有幾concrete或幾abstract，又是另一個學問。譬如因為當初user定下requirements，只想食tiramisu，就完全無視有其他蛋糕之可能性，固然目光狹窄；相反，一開始就目光過份遠大，定下整個由gift開始的class inheritance，不免overdone。
 
