@@ -4,6 +4,7 @@ title:  "點解software engineering咁難？"
 date:   2022-01-20 12:20:00 +08:00
 categories: [programming]
 ---
+![image](/assets/img/Tiramisu_-_Raffaele_Diomede.jpg)
 
 最近生活有個經驗正正反映software engineering之難處。
 
@@ -11,23 +12,24 @@ categories: [programming]
 
 「不如買去Cova買個Tiramisu？」
 
-class Cova
-{
-	enum flavor [Tiramisu,Strawberry,Mango]
-	Cova(var flavor)
-}
+{% highlight python}
+class Cova:
+	class Flavor:
+        Tiramisu = "tiramisu"
+        Strawberry = "strawberry"
+        Mango = "mango"
 
-func purchase_present(Cova cova)
-{
+	Cova(flavor)
+
+def purchase_present(cova):
     ...
-}
+    return
 
-main()
-{
-	my_cova = Cova(Cova.flavor.Tiramisu)
+def main():
+	my_cova = Cova(Cova.Flavor.Tiramisu)
 	purchase_present(my_cova)
-}
-![image](/assets/img/Tiramisu_-_Raffaele_Diomede.jpg)
+
+{% endhighlight %}
 
 買過幾次相安無事，某日：
 
@@ -39,43 +41,35 @@ class Cake
 {
 }
 
-class Cova : Cake
-{
-	enum flavor [Tiramisu,Strawberry,Mango]
-}
+class Cova(Cake):
+	class Flavor:
+        Tiramisu = "tiramisu"
+        Strawberry = "strawberry"
+        Mango = "mango"
 
-class ItalianTomato : Cake
-{
-	enum flavor [Chestnut,Strawberry]
-}
+class ItalianTomato(Cake):
+	class Flavor:
+        Chestnut = "chestnut"
+        Strawberry = "strawberry"
 
-func purchase_present(Cake cake)
-{
+def purchase_present(cake):
     ...
-}
+    return
 
-main()
-{
-	my_cake = ItalianTomato(ItalianTomato.flavor.Chestnut)
+def main():
+	my_cake = ItalianTomato(ItalianTomato.Flavor.Chestnut)
 	purchase_present(my_cake)
-}
-![image](/assets/img/1920px-Cheesecake_mit_Beeren.jpg)
 
 到某日，原來食蛋糕都會有食到厭既一日，又變成⋯⋯
 
-class Gift
-{
-}
-
-class Cake : Gift
-{
+class Gift:
     ...
-}
 
-class Toy : Gift
-{
+class Cake(Gift):
     ...
-}
+
+class Toy(Gift):
+    ...
 
 ...
 
