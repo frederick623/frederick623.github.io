@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Dashboard</title>
+  <!-- Lightweight Charting Library -->
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #161b22;
+      padding: 10px 20px;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.2rem; color: #58a6ff; }
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* -------- LEFT PANE -------- */
+    .pane-left {
+      width: 240px;
+      min-width: 200px;
+      background: #161b22;
+      border-right: 1px solid #30363d;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+      overflow-y: auto;
+    }
+    .pane-left h2 { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
+    .search-box {
+      display: flex;
+      gap: 6px;
+    }
+    .search-box input {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: #c9d1d9;
+      font-size: 0.9rem;
+    }
+    .search-box input:focus { outline: none; border-color: #58a6ff; }
+    .btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      cursor: pointer;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #30363d; }
+    .btn-primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+    .btn-primary:hover { background: #388bfd; }
+
+    #sector-info {
+      font-size: 0.8rem;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+    #peers-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    #peers-list li {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: border-color 0.15s;
+    }
+    #peers-list li:hover { border-color: #58a6ff; color: #58a6ff; }
+    #peers-list li .peer-price { float: right; color: #3fb950; }
+
+    /* -------- MIDDLE PANE -------- */
+    .pane-middle {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .quote-bar {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .quote-bar .ticker-name {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #e6edf3;
+    }
+    .quote-bar .price {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #3fb950;
+    }
+    .ohlc-grid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ohlc-item {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+    }
+    .ohlc-item .label { color: #8b949e; }
+    .ohlc-item .val { color: #e6edf3; font-weight: 600; }
+
+    .chart-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .chart-controls label { font-size: 0.82rem; color: #8b949e; }
+    .chart-controls select {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      padding: 4px 8px;
+      font-size: 0.82rem;
+    }
+    .chart-controls select:focus { outline: none; border-color: #58a6ff; }
+
+    #chart-container {
+      flex: 1;
+      min-height: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #30363d;
+    }
+
+    /* -------- RIGHT PANE -------- */
+    .pane-right {
+      width: 320px;
+      min-width: 260px;
+      background: #161b22;
+      border-left: 1px solid #30363d;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+      overflow: hidden;
+    }
+    .pane-right h2 { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
+    #news-table-wrap {
+      flex: 1;
+      overflow-y: auto;
+    }
+    #news-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+    #news-table thead th {
+      background: #21262d;
+      color: #8b949e;
+      text-align: left;
+      padding: 6px 8px;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      white-space: nowrap;
+    }
+    #news-table tbody tr { border-bottom: 1px solid #21262d; }
+    #news-table tbody tr:hover { background: #21262d; }
+    #news-table tbody td { padding: 6px 8px; vertical-align: top; }
+    #news-table .news-date { white-space: nowrap; color: #8b949e; }
+    #news-table .news-type {
+      white-space: nowrap;
+      background: #1f3a5f;
+      color: #79c0ff;
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-size: 0.72rem;
+    }
+    #news-table .news-title a { color: #c9d1d9; text-decoration: none; }
+    #news-table .news-title a:hover { color: #58a6ff; text-decoration: underline; }
+    #news-table .news-pub { color: #8b949e; font-size: 0.72rem; }
+
+    /* spinner */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid #30363d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status { font-size: 0.8rem; color: #8b949e; }
+    .error { color: #f85149; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>📈 Stock Dashboard</h1>
+  <span class="status" id="status-bar">Enter a ticker symbol to begin.</span>
+</header>
+<div class="main">
+
+  <!-- LEFT PANE -->
+  <div class="pane-left">
+    <h2>Search</h2>
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="e.g. AAPL" autocomplete="off" />
+      <button class="btn btn-primary" id="search-btn">Go</button>
+    </div>
+    <div id="sector-info"></div>
+    <h2 id="peers-heading" style="display:none">Sector Peers</h2>
+    <ul id="peers-list"></ul>
+  </div>
+
+  <!-- MIDDLE PANE -->
+  <div class="pane-middle">
+    <div class="quote-bar">
+      <span class="ticker-name" id="q-name">—</span>
+      <span class="price" id="q-price">—</span>
+    </div>
+    <div class="ohlc-grid">
+      <div class="ohlc-item"><div class="label">Open</div><div class="val" id="q-open">—</div></div>
+      <div class="ohlc-item"><div class="label">High</div><div class="val" id="q-high">—</div></div>
+      <div class="ohlc-item"><div class="label">Low</div><div class="val" id="q-low">—</div></div>
+      <div class="ohlc-item"><div class="label">Close</div><div class="val" id="q-close">—</div></div>
+      <div class="ohlc-item"><div class="label">Volume</div><div class="val" id="q-volume">—</div></div>
+      <div class="ohlc-item"><div class="label">Prev Close</div><div class="val" id="q-prev-close">—</div></div>
+      <div class="ohlc-item"><div class="label">52W High</div><div class="val" id="q-52h">—</div></div>
+      <div class="ohlc-item"><div class="label">52W Low</div><div class="val" id="q-52l">—</div></div>
+    </div>
+    <div class="chart-controls">
+      <label>Period:
+        <select id="period-select">
+          <option value="1mo">1 Month</option>
+          <option value="3mo" selected>3 Months</option>
+          <option value="6mo">6 Months</option>
+          <option value="1y">1 Year</option>
+          <option value="2y">2 Years</option>
+        </select>
+      </label>
+      <label>2nd Y-Axis Indicator:
+        <select id="indicator-select">
+          <option value="">None</option>
+          <option value="volume">Volume</option>
+          <option value="pe_ratio">P/E Ratio</option>
+          <option value="eps">EPS</option>
+          <option value="revenue">Revenue</option>
+          <option value="gross_profit">Gross Profit</option>
+          <option value="operating_cash_flow">Operating Cash Flow</option>
+          <option value="free_cash_flow">Free Cash Flow</option>
+          <option value="debt_to_equity">Debt / Equity</option>
+          <option value="roe">Return on Equity</option>
+          <option value="roa">Return on Assets</option>
+          <option value="profit_margin">Profit Margin</option>
+          <option value="dividend_yield">Dividend Yield</option>
+          <option value="beta">Beta</option>
+          <option value="52w_high">52W High</option>
+          <option value="52w_low">52W Low</option>
+        </select>
+      </label>
+      <button class="btn" id="reload-chart-btn">Reload Chart</button>
+    </div>
+    <div id="chart-container"></div>
+  </div>
+
+  <!-- RIGHT PANE -->
+  <div class="pane-right">
+    <h2>News Feed</h2>
+    <div id="news-table-wrap">
+      <table id="news-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Headline / Publisher</th>
+          </tr>
+        </thead>
+        <tbody id="news-body">
+          <tr><td colspan="3" style="color:#8b949e;padding:10px">No data yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API_BASE = "http://localhost:5000/api";
+
+  let currentSymbol = "";
+  let chart = null;
+  let candleSeries = null;
+  let indicatorSeries = null;
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  const fmt = (v, digits = 2) =>
+    v == null ? "—" : Number(v).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+  const fmtInt = v => v == null ? "—" : Number(v).toLocaleString();
+
+  function setStatus(msg, isError = false) {
+    const el = document.getElementById("status-bar");
+    el.textContent = msg;
+    el.className = isError ? "error" : "status";
+  }
+
+  // ── chart setup ───────────────────────────────────────────────────────────
+  function initChart() {
+    const container = document.getElementById("chart-container");
+    container.innerHTML = "";
+    chart = LightweightCharts.createChart(container, {
+      width: container.clientWidth,
+      height: container.clientHeight,
+      layout: { background: { color: "#0d1117" }, textColor: "#c9d1d9" },
+      grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      rightPriceScale: { borderColor: "#30363d" },
+      leftPriceScale: { borderColor: "#30363d", visible: false },
+      timeScale: { borderColor: "#30363d", timeVisible: true },
+    });
+
+    // observe resize
+    new ResizeObserver(() => {
+      chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+    }).observe(container);
+
+    candleSeries = chart.addCandlestickSeries({
+      upColor: "#3fb950",
+      downColor: "#f85149",
+      borderUpColor: "#3fb950",
+      borderDownColor: "#f85149",
+      wickUpColor: "#3fb950",
+      wickDownColor: "#f85149",
+    });
+
+    indicatorSeries = null;
+  }
+
+  function clearIndicatorSeries() {
+    if (indicatorSeries) {
+      try { chart.removeSeries(indicatorSeries); } catch (_) {}
+      indicatorSeries = null;
+    }
+    chart.applyOptions({ leftPriceScale: { visible: false } });
+  }
+
+  // ── load candlestick data ─────────────────────────────────────────────────
+  async function loadChart(symbol, period) {
+    const url = `${API_BASE}/history?symbol=${encodeURIComponent(symbol)}&period=${period}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const candles = data.candles.map(c => ({
+      time: c.date,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    }));
+    candleSeries.setData(candles);
+    chart.timeScale().fitContent();
+  }
+
+  // ── load indicator overlay ────────────────────────────────────────────────
+  async function loadIndicator(symbol, indicator, period) {
+    clearIndicatorSeries();
+    if (!indicator) return;
+
+    const url = `${API_BASE}/indicator_series?symbol=${encodeURIComponent(symbol)}&indicator=${indicator}&period=${period}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const series = data.series.filter(p => p.value != null);
+    if (!series.length) return;
+
+    chart.applyOptions({ leftPriceScale: { visible: true } });
+
+    indicatorSeries = chart.addLineSeries({
+      color: "#e3b341",
+      lineWidth: 2,
+      priceScaleId: "left",
+      title: data.snapshot ? `${indicator} (current)` : indicator,
+    });
+    indicatorSeries.setData(series.map(p => ({ time: p.date, value: p.value })));
+  }
+
+  // ── load quote ────────────────────────────────────────────────────────────
+  async function loadQuote(symbol) {
+    const resp = await fetch(`${API_BASE}/quote?symbol=${encodeURIComponent(symbol)}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById("q-name").textContent = `${data.symbol} — ${data.name}`;
+    document.getElementById("q-price").textContent =
+      data.currentPrice != null ? `${data.currency} ${fmt(data.currentPrice)}` : "—";
+    document.getElementById("q-open").textContent = fmt(data.open);
+    document.getElementById("q-high").textContent = fmt(data.high);
+    document.getElementById("q-low").textContent = fmt(data.low);
+    document.getElementById("q-close").textContent = fmt(data.close);
+    document.getElementById("q-volume").textContent = fmtInt(data.volume);
+    document.getElementById("q-prev-close").textContent = fmt(data.previousClose);
+    document.getElementById("q-52h").textContent = fmt(data.fiftyTwoWeekHigh);
+    document.getElementById("q-52l").textContent = fmt(data.fiftyTwoWeekLow);
+  }
+
+  // ── load news ─────────────────────────────────────────────────────────────
+  async function loadNews(symbol) {
+    const resp = await fetch(`${API_BASE}/news?symbol=${encodeURIComponent(symbol)}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const tbody = document.getElementById("news-body");
+    if (!data.news.length) {
+      tbody.innerHTML = '<tr><td colspan="3" style="color:#8b949e;padding:10px">No news found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.news.map(n => `
+      <tr>
+        <td class="news-date">${n.date}</td>
+        <td><span class="news-type">${n.type}</span></td>
+        <td>
+          <div class="news-title"><a href="${safeLink(n.link)}" target="_blank" rel="noopener">${escHtml(n.title)}</a></div>
+          <div class="news-pub">${escHtml(n.publisher)}</div>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function safeLink(url) {
+    if (!url) return "#";
+    const lower = url.toLowerCase();
+    return (lower.startsWith("https://") || lower.startsWith("http://")) ? escHtml(url) : "#";
+  }
+
+  // ── load search / sector peers ────────────────────────────────────────────
+  async function loadSearch(symbol) {
+    const resp = await fetch(`${API_BASE}/search?symbol=${encodeURIComponent(symbol)}`);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById("sector-info").innerHTML =
+      `<strong style="color:#c9d1d9">${data.name}</strong><br>` +
+      `Sector: ${data.sector || "N/A"}<br>Industry: ${data.industry || "N/A"}`;
+
+    const peersList = document.getElementById("peers-list");
+    const heading = document.getElementById("peers-heading");
+    peersList.innerHTML = "";
+
+    if (data.peers.length) {
+      heading.style.display = "";
+      data.peers.forEach(p => {
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${p.symbol}</strong> ${escHtml(p.name || "")}` +
+          (p.currentPrice != null ? `<span class="peer-price">${fmt(p.currentPrice)}</span>` : "");
+        li.addEventListener("click", () => {
+          document.getElementById("search-input").value = p.symbol;
+          runSearch(p.symbol);
+        });
+        peersList.appendChild(li);
+      });
+    } else {
+      heading.style.display = "none";
+    }
+  }
+
+  // ── master search ─────────────────────────────────────────────────────────
+  async function runSearch(symbol) {
+    if (!symbol) return;
+    currentSymbol = symbol.toUpperCase();
+    setStatus(`Loading ${currentSymbol}… ⏳`);
+    document.getElementById("search-input").value = currentSymbol;
+
+    try {
+      initChart();
+      const period = document.getElementById("period-select").value;
+      const indicator = document.getElementById("indicator-select").value;
+
+      await Promise.all([
+        loadQuote(currentSymbol),
+        loadChart(currentSymbol, period).then(() => loadIndicator(currentSymbol, indicator, period)),
+        loadSearch(currentSymbol),
+        loadNews(currentSymbol),
+      ]);
+      setStatus(`Loaded ${currentSymbol} successfully.`);
+    } catch (err) {
+      setStatus(`Error: ${err.message}`, true);
+    }
+  }
+
+  // ── event listeners ───────────────────────────────────────────────────────
+  document.getElementById("search-btn").addEventListener("click", () => {
+    runSearch(document.getElementById("search-input").value.trim());
+  });
+
+  document.getElementById("search-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") runSearch(document.getElementById("search-input").value.trim());
+  });
+
+  document.getElementById("reload-chart-btn").addEventListener("click", async () => {
+    if (!currentSymbol) return;
+    const period = document.getElementById("period-select").value;
+    const indicator = document.getElementById("indicator-select").value;
+    try {
+      setStatus("Reloading chart…");
+      await loadChart(currentSymbol, period);
+      await loadIndicator(currentSymbol, indicator, period);
+      setStatus("Chart updated.");
+    } catch (err) {
+      setStatus(`Error: ${err.message}`, true);
+    }
+  });
+
+  // initial chart placeholder
+  initChart();
+</script>
+</body>
+</html>
