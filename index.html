@@ -399,20 +399,21 @@
   // ── load candlestick data ─────────────────────────────────────────────────
   async function loadChart(symbol, period) {
     const result = await fetchChart(symbol, period);
-    if (!chart || !candleSeries) return;
+    if (!chart || !candleSeries) return result;
     const candles = chartRows(result)
       .filter(c => [c.open, c.high, c.low, c.close].every(Number.isFinite))
       .map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close }));
     candleSeries.setData(candles);
     chart.timeScale().fitContent();
+    return result;
   }
 
   // ── load indicator overlay ────────────────────────────────────────────────
-  async function loadIndicator(symbol, indicator, period) {
+  async function loadIndicator(symbol, indicator, period, chartResult) {
     clearIndicatorSeries();
     if (indicator !== "volume") return;
 
-    const result = await fetchChart(symbol, period);
+    const result = chartResult || await fetchChart(symbol, period);
     if (!chart) return;
     const series = chartRows(result)
       .filter(p => Number.isFinite(p.volume))
@@ -431,8 +432,8 @@
   }
 
   // ── load quote ────────────────────────────────────────────────────────────
-  async function loadQuote(symbol, chartResult = fetchChart(symbol, "5d")) {
-    const meta = (await chartResult).meta;
+  async function loadQuote(symbol, chartResult) {
+    const meta = (await (chartResult || fetchChart(symbol, "5d"))).meta;
     const data = {
       symbol: meta.symbol || symbol,
       name: meta.longName || meta.shortName || symbol,
@@ -475,7 +476,7 @@
     tbody.innerHTML = data.news.map(n => `
       <tr>
         <td class="news-date">${n.providerPublishTime ? new Date(n.providerPublishTime * 1000).toLocaleDateString() : ""}</td>
-        <td><span class="news-type">${escHtml(n.type || "NEWS")}</span></td>
+        <td><span class="news-type">${formatNewsType(n.type)}</span></td>
         <td>
           <div class="news-title"><a href="${safeLink(n.link)}" target="_blank" rel="noopener">${escHtml(n.title)}</a></div>
           <div class="news-pub">${escHtml(n.publisher)}</div>
@@ -495,9 +496,13 @@
     return (lower.startsWith("https://") || lower.startsWith("http://")) ? escHtml(link) : "#";
   }
 
+  function formatNewsType(type) {
+    return type === "VIDEO" ? "Video" : "News";
+  }
+
   // ── load search / sector peers ────────────────────────────────────────────
-  async function loadSearch(symbol, chartResult = fetchChart(symbol, "5d")) {
-    const meta = (await chartResult).meta;
+  async function loadSearch(symbol, chartResult) {
+    const meta = (await (chartResult || fetchChart(symbol, "5d"))).meta;
     const data = {
       name: meta.longName || meta.shortName || symbol,
       sector: "Not provided by the public market-data feed",
@@ -545,7 +550,7 @@
 
       const results = await Promise.allSettled([
         loadQuote(currentSymbol, quoteChart),
-        loadChart(currentSymbol, period).then(() => loadIndicator(currentSymbol, indicator, period)),
+        loadChart(currentSymbol, period).then(result => loadIndicator(currentSymbol, indicator, period, result)),
         loadSearch(currentSymbol, quoteChart),
         loadNews(currentSymbol),
       ]);
