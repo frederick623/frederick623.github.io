@@ -410,7 +410,7 @@
   // ── load indicator overlay ────────────────────────────────────────────────
   async function loadIndicator(symbol, indicator, period) {
     clearIndicatorSeries();
-    if (!indicator) return;
+    if (indicator !== "volume") return;
 
     const result = await fetchChart(symbol, period);
     if (!chart) return;
@@ -431,8 +431,8 @@
   }
 
   // ── load quote ────────────────────────────────────────────────────────────
-  async function loadQuote(symbol) {
-    const meta = (await fetchChart(symbol, "5d")).meta;
+  async function loadQuote(symbol, chartResult = fetchChart(symbol, "5d")) {
+    const meta = (await chartResult).meta;
     const data = {
       symbol: meta.symbol || symbol,
       name: meta.longName || meta.shortName || symbol,
@@ -496,8 +496,8 @@
   }
 
   // ── load search / sector peers ────────────────────────────────────────────
-  async function loadSearch(symbol) {
-    const meta = (await fetchChart(symbol, "5d")).meta;
+  async function loadSearch(symbol, chartResult = fetchChart(symbol, "5d")) {
+    const meta = (await chartResult).meta;
     const data = {
       name: meta.longName || meta.shortName || symbol,
       sector: "Not provided by the public market-data feed",
@@ -541,11 +541,12 @@
       initChart();
       const period = document.getElementById("period-select").value;
       const indicator = document.getElementById("indicator-select").value;
+      const quoteChart = fetchChart(currentSymbol, "5d");
 
       const results = await Promise.allSettled([
-        loadQuote(currentSymbol),
+        loadQuote(currentSymbol, quoteChart),
         loadChart(currentSymbol, period).then(() => loadIndicator(currentSymbol, indicator, period)),
-        loadSearch(currentSymbol),
+        loadSearch(currentSymbol, quoteChart),
         loadNews(currentSymbol),
       ]);
       const failures = results.filter(result => result.status === "rejected");
