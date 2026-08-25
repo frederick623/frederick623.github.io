@@ -1,10 +1,16 @@
 import datetime
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import yfinance as yf
 
 app = Flask(__name__)
 CORS(app)
+
+
+@app.route("/")
+def dashboard():
+    """Serve the dashboard from the same origin as its API."""
+    return send_from_directory(app.root_path, "index.html")
 
 
 def _ticker_info(symbol):
