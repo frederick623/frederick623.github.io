@@ -270,20 +270,6 @@
         <select id="indicator-select">
           <option value="">None</option>
           <option value="volume">Volume</option>
-          <option value="pe_ratio">P/E Ratio</option>
-          <option value="eps">EPS</option>
-          <option value="revenue">Revenue</option>
-          <option value="gross_profit">Gross Profit</option>
-          <option value="operating_cash_flow">Operating Cash Flow</option>
-          <option value="free_cash_flow">Free Cash Flow</option>
-          <option value="debt_to_equity">Debt / Equity</option>
-          <option value="roe">Return on Equity</option>
-          <option value="roa">Return on Assets</option>
-          <option value="profit_margin">Profit Margin</option>
-          <option value="dividend_yield">Dividend Yield</option>
-          <option value="beta">Beta</option>
-          <option value="52w_high">52W High</option>
-          <option value="52w_low">52W Low</option>
         </select>
       </label>
       <button class="btn" id="reload-chart-btn">Reload Chart</button>
@@ -313,7 +299,9 @@
 </div>
 
 <script>
-  const API_BASE = "http://localhost:5000/api";
+  // GitHub Pages can host static assets only; request public market data directly
+  // rather than relying on a Flask server running on the visitor's computer.
+  const YAHOO_FINANCE_BASE = "https://query1.finance.yahoo.com";
 
   let currentSymbol = "";
   let chart = null;
@@ -326,6 +314,35 @@
 
   const fmtInt = v => v == null ? "—" : Number(v).toLocaleString();
 
+  async function fetchJson(url) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Data request failed (${response.status})`);
+    return response.json();
+  }
+
+  async function fetchChart(symbol, period) {
+    const data = await fetchJson(
+      `${YAHOO_FINANCE_BASE}/v8/finance/chart/${encodeURIComponent(symbol)}?range=${period}&interval=1d`
+    );
+    if (data.chart?.error) throw new Error(data.chart.error.description || "Market data is unavailable.");
+
+    const result = data.chart?.result?.[0];
+    if (!result) throw new Error("No market data was found for this ticker.");
+    return result;
+  }
+
+  function chartRows(result) {
+    const quote = result.indicators?.quote?.[0] || {};
+    return (result.timestamp || []).map((timestamp, index) => ({
+      date: new Date(timestamp * 1000).toISOString().slice(0, 10),
+      open: quote.open?.[index],
+      high: quote.high?.[index],
+      low: quote.low?.[index],
+      close: quote.close?.[index],
+      volume: quote.volume?.[index],
+    }));
+  }
+
   function setStatus(msg, isError = false) {
     const el = document.getElementById("status-bar");
     el.textContent = msg;
@@ -336,6 +353,13 @@
   function initChart() {
     const container = document.getElementById("chart-container");
     container.innerHTML = "";
+    if (!window.LightweightCharts) {
+      container.textContent = "The chart library could not be loaded. Quotes and news are still available.";
+      container.className = "error";
+      chart = null;
+      candleSeries = null;
+      return;
+    }
     chart = LightweightCharts.createChart(container, {
       width: container.clientWidth,
       height: container.clientHeight,
@@ -365,27 +389,20 @@
   }
 
   function clearIndicatorSeries() {
-    if (indicatorSeries) {
+    if (chart && indicatorSeries) {
       try { chart.removeSeries(indicatorSeries); } catch (_) {}
       indicatorSeries = null;
     }
-    chart.applyOptions({ leftPriceScale: { visible: false } });
+    if (chart) chart.applyOptions({ leftPriceScale: { visible: false } });
   }
 
   // ── load candlestick data ─────────────────────────────────────────────────
   async function loadChart(symbol, period) {
-    const url = `${API_BASE}/history?symbol=${encodeURIComponent(symbol)}&period=${period}`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-
-    const candles = data.candles.map(c => ({
-      time: c.date,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    }));
+    const result = await fetchChart(symbol, period);
+    if (!chart || !candleSeries) return;
+    const candles = chartRows(result)
+      .filter(c => [c.open, c.high, c.low, c.close].every(Number.isFinite))
+      .map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close }));
     candleSeries.setData(candles);
     chart.timeScale().fitContent();
   }
@@ -395,12 +412,11 @@
     clearIndicatorSeries();
     if (!indicator) return;
 
-    const url = `${API_BASE}/indicator_series?symbol=${encodeURIComponent(symbol)}&indicator=${indicator}&period=${period}`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-
-    const series = data.series.filter(p => p.value != null);
+    const result = await fetchChart(symbol, period);
+    if (!chart) return;
+    const series = chartRows(result)
+      .filter(p => Number.isFinite(p.volume))
+      .map(p => ({ date: p.date, value: p.volume }));
     if (!series.length) return;
 
     chart.applyOptions({ leftPriceScale: { visible: true } });
@@ -409,16 +425,28 @@
       color: "#e3b341",
       lineWidth: 2,
       priceScaleId: "left",
-      title: data.snapshot ? `${indicator} (current)` : indicator,
+      title: indicator,
     });
     indicatorSeries.setData(series.map(p => ({ time: p.date, value: p.value })));
   }
 
   // ── load quote ────────────────────────────────────────────────────────────
   async function loadQuote(symbol) {
-    const resp = await fetch(`${API_BASE}/quote?symbol=${encodeURIComponent(symbol)}`);
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
+    const meta = (await fetchChart(symbol, "5d")).meta;
+    const data = {
+      symbol: meta.symbol || symbol,
+      name: meta.longName || meta.shortName || symbol,
+      currency: meta.currency || "USD",
+      currentPrice: meta.regularMarketPrice,
+      open: meta.regularMarketOpen,
+      high: meta.regularMarketDayHigh,
+      low: meta.regularMarketDayLow,
+      close: meta.regularMarketPrice,
+      volume: meta.regularMarketVolume,
+      previousClose: meta.chartPreviousClose ?? meta.previousClose,
+      fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh,
+      fiftyTwoWeekLow: meta.fiftyTwoWeekLow,
+    };
 
     document.getElementById("q-name").textContent = `${data.symbol} — ${data.name}`;
     document.getElementById("q-price").textContent =
@@ -435,19 +463,19 @@
 
   // ── load news ─────────────────────────────────────────────────────────────
   async function loadNews(symbol) {
-    const resp = await fetch(`${API_BASE}/news?symbol=${encodeURIComponent(symbol)}`);
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
+    const data = await fetchJson(
+      `${YAHOO_FINANCE_BASE}/v1/finance/search?q=${encodeURIComponent(symbol)}&newsCount=10`
+    );
 
     const tbody = document.getElementById("news-body");
-    if (!data.news.length) {
+    if (!data.news?.length) {
       tbody.innerHTML = '<tr><td colspan="3" style="color:#8b949e;padding:10px">No news found.</td></tr>';
       return;
     }
     tbody.innerHTML = data.news.map(n => `
       <tr>
-        <td class="news-date">${n.date}</td>
-        <td><span class="news-type">${n.type}</span></td>
+        <td class="news-date">${n.providerPublishTime ? new Date(n.providerPublishTime * 1000).toLocaleDateString() : ""}</td>
+        <td><span class="news-type">${escHtml(n.type || "NEWS")}</span></td>
         <td>
           <div class="news-title"><a href="${safeLink(n.link)}" target="_blank" rel="noopener">${escHtml(n.title)}</a></div>
           <div class="news-pub">${escHtml(n.publisher)}</div>
@@ -457,20 +485,25 @@
   }
 
   function escHtml(s) {
-    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
   function safeLink(url) {
     if (!url) return "#";
-    const lower = url.toLowerCase();
-    return (lower.startsWith("https://") || lower.startsWith("http://")) ? escHtml(url) : "#";
+    const link = String(url);
+    const lower = link.toLowerCase();
+    return (lower.startsWith("https://") || lower.startsWith("http://")) ? escHtml(link) : "#";
   }
 
   // ── load search / sector peers ────────────────────────────────────────────
   async function loadSearch(symbol) {
-    const resp = await fetch(`${API_BASE}/search?symbol=${encodeURIComponent(symbol)}`);
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
+    const meta = (await fetchChart(symbol, "5d")).meta;
+    const data = {
+      name: meta.longName || meta.shortName || symbol,
+      sector: "Not provided by the public market-data feed",
+      industry: "",
+      peers: [],
+    };
 
     document.getElementById("sector-info").innerHTML =
       `<strong style="color:#c9d1d9">${data.name}</strong><br>` +
@@ -509,13 +542,19 @@
       const period = document.getElementById("period-select").value;
       const indicator = document.getElementById("indicator-select").value;
 
-      await Promise.all([
+      const results = await Promise.allSettled([
         loadQuote(currentSymbol),
         loadChart(currentSymbol, period).then(() => loadIndicator(currentSymbol, indicator, period)),
         loadSearch(currentSymbol),
         loadNews(currentSymbol),
       ]);
-      setStatus(`Loaded ${currentSymbol} successfully.`);
+      const failures = results.filter(result => result.status === "rejected");
+      if (failures.length) {
+        console.warn("Some dashboard data could not be loaded:", failures);
+        setStatus(`Loaded ${currentSymbol}; some data is temporarily unavailable.`, true);
+      } else {
+        setStatus(`Loaded ${currentSymbol} successfully.`);
+      }
     } catch (err) {
       setStatus(`Error: ${err.message}`, true);
     }
@@ -546,6 +585,7 @@
 
   // initial chart placeholder
   initChart();
+  runSearch("AAPL");
 </script>
 </body>
 </html>
