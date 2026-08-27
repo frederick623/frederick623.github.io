@@ -162,7 +162,6 @@ def history():
 
 
 INDICATOR_MAP = {
-    "pe_ratio": "trailingPE",
     "eps": "trailingEps",
     "revenue": "totalRevenue",
     "gross_profit": "grossProfits",
@@ -179,10 +178,63 @@ INDICATOR_MAP = {
 }
 
 
+def _trailing_four_quarter_values(ticker, row_names):
+    """Return trailing-four-quarter totals keyed by fiscal quarter end date."""
+    financials = ticker.quarterly_income_stmt
+    if financials is None or financials.empty:
+        return []
+
+    values = None
+    for row_name in row_names:
+        if row_name in financials.index:
+            values = financials.loc[row_name].dropna()
+            if not values.empty:
+                break
+
+    if values is None or values.empty:
+        return []
+
+    quarterly_values = sorted(
+        (quarter_end.date(), float(value))
+        for quarter_end, value in values.items()
+    )
+    trailing_values = []
+    for index in range(3, len(quarterly_values)):
+        quarter_end = quarterly_values[index][0]
+        trailing_total = sum(value for _, value in quarterly_values[index - 3:index + 1])
+        trailing_values.append((quarter_end, trailing_total))
+    return trailing_values
+
+
+def _series_from_quarterly_values(history, trailing_values, transform=lambda value, _: value):
+    """Apply each trailing fiscal-quarter value to later daily price observations."""
+    series = []
+    value_index = 0
+    current_value = None
+
+    for date, row in history.iterrows():
+        observation_date = date.date()
+        while (
+            value_index < len(trailing_values)
+            and trailing_values[value_index][0] <= observation_date
+        ):
+            current_value = trailing_values[value_index][1]
+            value_index += 1
+
+        if current_value is not None:
+            value = transform(current_value, float(row["Close"]))
+            if value is not None:
+                series.append({"date": date.strftime("%Y-%m-%d"), "value": value})
+
+    return series
+
+
 @app.route("/api/indicators")
 def indicators():
     """Return list of available indicator keys."""
-    return jsonify({"indicators": list(INDICATOR_MAP.keys())})
+    return jsonify({
+        "indicators": ["volume", "ttm_earnings", "pe_ratio", *INDICATOR_MAP.keys()]
+    })
 
 
 @app.route("/api/indicator_series")
@@ -202,6 +254,28 @@ def indicator_series():
             hist = t.history(period=period)
             hist.index = hist.index.strftime("%Y-%m-%d")
             series = [{"date": idx, "value": int(row["Volume"])} for idx, row in hist.iterrows()]
+            return jsonify({"symbol": symbol, "indicator": indicator, "series": series})
+
+        if indicator in {"ttm_earnings", "pe_ratio"}:
+            hist = t.history(period=period)
+            if indicator == "ttm_earnings":
+                trailing_values = _trailing_four_quarter_values(
+                    t,
+                    ["Net Income", "Net Income Common Stockholders", "Normalized Income"],
+                )
+                series = _series_from_quarterly_values(hist, trailing_values)
+            else:
+                trailing_values = _trailing_four_quarter_values(
+                    t,
+                    ["Diluted EPS", "Basic EPS"],
+                )
+                series = _series_from_quarterly_values(
+                    hist,
+                    trailing_values,
+                    lambda trailing_eps, close: (
+                        round(close / trailing_eps, 4) if trailing_eps > 0 else None
+                    ),
+                )
             return jsonify({"symbol": symbol, "indicator": indicator, "series": series})
 
         # For many static indicators (e.g. P/E, Beta), Yahoo Finance only
